@@ -40,6 +40,15 @@ class App:
         self.generate_blocks()
         self.master.mainloop()
 
+    def get_all_neighbors(self, a: int, b: int) -> list:
+        cells = [[a, b]]
+        cells.extend([[a, b-1], [a, b+1]])
+        if a<3: cells.extend([[a-1, b-1], [a-1, b], [a+1, b], [a+1, b+1]])
+        elif a==3: cells.extend([[a-1, b-1], [a-1, b], [a+1, b-1], [a+1, b]])
+        else: cells.extend([[a-1, b], [a-1, b+1], [a+1, b-1], [a+1, b]])
+        return [x for x in cells if (x[0]>=0 and x[0]<7 and x[1]>=0 and
+                                     x[1]<7-abs(x[0]-3))]
+
     def create_hexagon(self, x: float, y: float, global_tags: tuple,  
                        color: str = "", text: str = "", size: float = 1, 
                        coords_tag: str = "") -> None:
@@ -114,10 +123,13 @@ class App:
             
 
     def block_released(self, event) -> None:
+        print(self.current_block)
         if self.current_block != -1:
             print(self.current_cell)
+            print(self.get_all_neighbors(self.current_cell[0], self.current_cell[1]))
             self.canvas.move(f"block{self.current_block}", 
                              self.WIDTH//4*(self.current_block+1)-event.x, self.HEIGHT-40-event.y)
+            self.current_block = -1
 
 if __name__ == "__main__":
     app = App() 
