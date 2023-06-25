@@ -2,6 +2,7 @@ import tkinter as tk
 import random
 import time
 from tkinter import font
+from operator import itemgetter
 
 
 
@@ -71,6 +72,22 @@ class App:
                     self.board[a][b]==0 and self.board[c][d]==0):
             return [a, b, c, d]
         return False
+
+    def find_all_same(self, a: int, b: int) -> list:
+        """
+        Return a list of all cells which are connected to main cell or to themselves 
+        and have same value
+        """ 
+        cells = [[a, b]]
+        n = 1
+        while True:
+            for k in cells:
+                cells.extend([x for x in self.get_all_neighbors(k[0], k[1])
+                                if self.board[x[0]][x[1]]==self.board[a][b]!=0
+                                and x not in cells])
+            if len(cells)==n: break
+            else: n = len(cells)
+        return cells
 
     def create_hexagon(self, x: float, y: float, global_tags: tuple,  
                        color: str = "", text: str = "", size: float = 1, 
@@ -161,27 +178,29 @@ class App:
                 if self.current_cell != [-1, -1]:
                     self.current_cell = [-1, -1]
                     self.reset_gridcell()
-            
-
-            
 
     def block_released(self, event) -> None:
         if self.current_block != -1:
+            print("lol")
             if self.current_cell != [-1, -1]:
+                # get coords of both possible cells
                 a, b = self.current_cell
                 c, d = self.get_second_block(
                             self.current_cell[0], self.current_cell[1],
                             self.blocks_to_choose[self.current_block][0])
+                # check if block fits in gridcell
                 if (a>=0 and a<7 and b>=0 and b<7-abs(a-3) and 
                             c>=0 and c<7 and d>=0 and d<7-abs(a-3) and
                             self.board[a][b]==0 and self.board[c][d]==0):
                     self.canvas.delete(f"block{self.current_block}")
                     self.board[a][b] = self.blocks_to_choose[self.current_block][1]
+                    # get number (numbers) of block
                     e, f = self.blocks_to_choose[self.current_block][1], -1
                     if [a, b]!=[c, d]:
                         self.board[c][d] = self.blocks_to_choose[self.current_block][2]
                         f = self.blocks_to_choose[self.current_block][2]
                     k = 7-a if a<=3 else a+1
+                    # create blocks on gridcell
                     self.create_hexagon(k*35+b*70, 200+60*a, 
                                         f"block_placed{a}_{b}", 
                                         color=self.COLORS_PALETTE[0][e],
@@ -192,6 +211,26 @@ class App:
                                         f"block_placed{c}_{d}", 
                                         color=self.COLORS_PALETTE[0][f],
                                         text=str(f))
+                    while True:
+                        flags = [False, False]
+                        if len(self.find_all_same(a, b))>2: flags[0]=True
+                        if len(self.find_all_same(c, d))>2: flags[1]=True
+                        if not flags[0] and not flags[1]: break
+                        else:
+                            if flags[0] and not flags[1]: cell_main = [a, b]
+                            elif flags[1] and not flags[0]: cell_main = [c, d]
+                            else: cell_main = [a, b] if self.board[a][b]<self.board[c][d] else [c, d]
+                            cells = self.find_all_same(cell_main[0], cell_main[1])
+                            cells = sorted(cells, key=itemgetter(0))
+                            cells_divided = [[], []]
+                            for k in cells:
+                                if k != cell_main:
+                                    if cell_main in self.get_all_neighbors(k[0], k[1]):
+                                        cells_divided[1].append(k)
+                                    else:
+                                        cells_divided[0].append(k)
+                            
+                        break
                     self.blocks_to_choose[self.current_block] = -1
                     if self.blocks_to_choose.count(-1)==3:
                         self.generate_blocks()
