@@ -1,4 +1,5 @@
 import tkinter as tk
+import threading as th
 import random
 import time
 from tkinter import font
@@ -155,6 +156,27 @@ class App:
             for j in range(7-abs(i-3)):
                 self.canvas.itemconfig(f"cell{i}_{j}", fill=self.OTHER_COLORS[0][0])
 
+    def matching_blocks_anim(self, c_from: list, c_to: list) -> None:
+        """
+        Little animation for "matching" blocks
+        """
+        self.canvas.tag_raise(f"block_placed{c_to[0]}_{c_to[1]}")
+        # get coords of two blocks on gridcell
+        k = 7-c_from[0] if c_from[0] < 4 else c_from[0]+1
+        c1_from = [k*35+c_from[1]*70, 200+60*c_from[0]]
+        k = 7-c_to[0] if c_to[0] < 4 else c_to[0]+1
+        c1_to = [k*35+c_to[1]*70, 200+60*c_to[0]]
+        for i in range(15):
+            self.canvas.move(f"block_placed{c_from[0]}_{c_from[1]}",
+                             (c1_to[0]-c1_from[0])//15, (c1_to[1]-c1_from[1])//15)
+            time.sleep(0.001)
+            self.canvas.update()
+        self.canvas.delete(f"block_placed{c_from[0]}_{c_from[1]}")
+            
+
+        
+
+
     def block_icon_input(self, index: int) -> None:
         self.current_block = index
         self.canvas.tag_raise(f"block{index}")
@@ -163,7 +185,7 @@ class App:
         if self.current_block != -1:
             self.canvas.move(f"block{self.current_block}", 
                              event.x-self.canvas.coords(f"block{self.current_block}")[0], 
-                             event.y-self.canvas.coords(f"block{self.current_block}")[1]-100)
+                             event.y-self.canvas.coords(f"block{self.current_block}")[1]-85)
             tag = self.canvas.itemcget(self.canvas.find_closest(event.x, event.y), "tags").split()[0]
             if "cell" in tag:
                 if [int(tag[4]), int(tag[6])] != self.current_cell and self.check_if_fits(
@@ -181,7 +203,6 @@ class App:
 
     def block_released(self, event) -> None:
         if self.current_block != -1:
-            print("lol")
             if self.current_cell != [-1, -1]:
                 # get coords of both possible cells
                 a, b = self.current_cell
@@ -215,7 +236,9 @@ class App:
                         flags = [False, False]
                         if len(self.find_all_same(a, b))>2: flags[0]=True
                         if len(self.find_all_same(c, d))>2: flags[1]=True
-                        if not flags[0] and not flags[1]: break
+                        print(flags)
+                        if not flags[0] and not flags[1]:
+                            break
                         else:
                             if flags[0] and not flags[1]: cell_main = [a, b]
                             elif flags[1] and not flags[0]: cell_main = [c, d]
@@ -229,8 +252,31 @@ class App:
                                         cells_divided[1].append(k)
                                     else:
                                         cells_divided[0].append(k)
-                            
-                        break
+                            print(cells_divided)
+                            for i in cells_divided[0]:
+                                l = self.get_all_neighbors(i[0], i[1])
+                                for j in cells_divided[1]:
+                                    if j in l:
+                                        print("lol")
+                                        self.board[i[0]][i[1]]=0
+                                        self.matching_blocks_anim(i, j)
+                                        # th.Thread(target=self.matching_blocks_anim,
+                                        #           args=(i, j, )).start()
+                                        break
+                            for i in cells_divided[1]:
+                                print("lol2")
+                                self.board[i[0]][i[1]]=0
+                                self.matching_blocks_anim(i, cell_main)
+                            self.board[cell_main[0]][cell_main[1]]+=1
+                            self.canvas.delete(f"block_placed{cell_main[0]}_{cell_main[1]}")
+                            k = 7-cell_main[0] if cell_main[0]<=3 else cell_main[0]+1
+                            self.create_hexagon(k*35+cell_main[1]*70, 200+60*cell_main[0], 
+                                        f"block_placed{cell_main[0]}_{cell_main[1]}", 
+                                        color=self.COLORS_PALETTE[0][self.board[cell_main[0]][cell_main[1]]],
+                                        text=str(self.board[cell_main[0]][cell_main[1]]))
+                                        
+                                        
+
                     self.blocks_to_choose[self.current_block] = -1
                     if self.blocks_to_choose.count(-1)==3:
                         self.generate_blocks()
