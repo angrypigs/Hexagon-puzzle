@@ -14,14 +14,16 @@ class App:
         self.WIDTH = 700
         self.HEIGHT = 900
         self.OTHER_COLORS = [["#174872", "#2169A6"]]
-        self.COLORS_PALETTE = [["", "#AC34F3", "#FBF8CC", "#90DBF4", "#FDE4CF",
-                                "#98F5E1", "#FFCFD2", "#B9FBC0", "#CFBAF0"]]
+        self.COLORS_PALETTE = [["", "#A621F4", "#F4EA53", "#44C7F3", "#F38930",
+                                "#49E9C6", "#F23F4A", "#48DA57", "#8F53EE"]]
         # declare variables
         self.board = [[0 for i in range(j)] for j in [4, 5, 6, 7, 6, 5, 4]]
         self.current_cell = [-1, -1]
         self.current_block = -1
         self.blocks_to_choose = [-1, -1, -1]
         self.unlocked_block = 2
+        self.flag_working = True
+        self.flag_animation = False
         # init app
         self.master = tk.Tk()
         self.master.geometry(f"{self.WIDTH}x{self.HEIGHT}")
@@ -99,10 +101,11 @@ class App:
         tags_list2 = global_tags + (coords_tag, ) if coords_tag!="" else global_tags
         self.canvas.create_polygon([x, y-40*size, x+35*size, y-20*size, x+35*size, y+20*size,
                                     x, y+40*size, x-35*size, y+20*size, x-35*size, y-20*size],
-                                    fill=color, tags=global_tags, width=2*size, outline="#000000")
+                                    fill=color, tags=global_tags, width=3*size, outline="#000000")
         if text != "": self.canvas.create_text(x, y, text=text, state='disabled',
                                                justify='center', anchor='center',
-                                               font=font.Font(size=int(20*size), family="Helvetica"),
+                                               font=font.Font(size=int(20*size), 
+                                                              family="Helvetica", weight='bold'),
                                                tags=global_tags)
             
     def create_hexagon_block(self, x: int, y: int, mode: int, numbers: list|int, 
@@ -140,7 +143,7 @@ class App:
         if index == -1:
             link = lambda x: (lambda event: self.block_icon_input(x))
             for i in range(3):
-                self.blocks_to_choose[i] = [random.randint(0, 3)]
+                self.blocks_to_choose[i] = [random.choice([0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3])]
                 if self.blocks_to_choose[i][0] != 0:
                     self.blocks_to_choose[i].extend(random.sample(range(1, self.unlocked_block+1), 2))
                 else:
@@ -178,11 +181,12 @@ class App:
 
 
     def block_icon_input(self, index: int) -> None:
-        self.current_block = index
-        self.canvas.tag_raise(f"block{index}")
+        if not self.flag_animation:
+            self.current_block = index
+            self.canvas.tag_raise(f"block{index}")
 
     def motion_left_clicked(self, event) -> None:
-        if self.current_block != -1:
+        if self.current_block != -1 and not self.flag_animation:
             self.canvas.move(f"block{self.current_block}", 
                              event.x-self.canvas.coords(f"block{self.current_block}")[0], 
                              event.y-self.canvas.coords(f"block{self.current_block}")[1]-85)
@@ -202,7 +206,8 @@ class App:
                     self.reset_gridcell()
 
     def block_released(self, event) -> None:
-        if self.current_block != -1:
+        if self.current_block != -1 and not self.flag_animation:
+            self.flag_animation = True
             if self.current_cell != [-1, -1]:
                 # get coords of both possible cells
                 a, b = self.current_cell
@@ -211,7 +216,7 @@ class App:
                             self.blocks_to_choose[self.current_block][0])
                 # check if block fits in gridcell
                 if (a>=0 and a<7 and b>=0 and b<7-abs(a-3) and 
-                            c>=0 and c<7 and d>=0 and d<7-abs(a-3) and
+                            c>=0 and c<7 and d>=0 and d<7-abs(c-3) and
                             self.board[a][b]==0 and self.board[c][d]==0):
                     self.canvas.delete(f"block{self.current_block}")
                     self.board[a][b] = self.blocks_to_choose[self.current_block][1]
@@ -236,7 +241,6 @@ class App:
                         flags = [False, False]
                         if len(self.find_all_same(a, b))>2: flags[0]=True
                         if len(self.find_all_same(c, d))>2: flags[1]=True
-                        print(flags)
                         if not flags[0] and not flags[1]:
                             break
                         else:
@@ -245,29 +249,52 @@ class App:
                             else: cell_main = [a, b] if self.board[a][b]<self.board[c][d] else [c, d]
                             cells = self.find_all_same(cell_main[0], cell_main[1])
                             cells = sorted(cells, key=itemgetter(0))
-                            cells_divided = [[], []]
+                            # list for same cells around main cell
+                            cells_divided = [[], [], []]
+                            # divide same cells into that around main cell and further ones
                             for k in cells:
                                 if k != cell_main:
                                     if cell_main in self.get_all_neighbors(k[0], k[1]):
-                                        cells_divided[1].append(k)
-                                    else:
                                         cells_divided[0].append(k)
-                            print(cells_divided)
-                            for i in cells_divided[0]:
-                                l = self.get_all_neighbors(i[0], i[1])
+                                    else:
+                                        cells_divided[1].append(k)
+                            # check for cells which are two cells away main cell
+                            for i in cells_divided[1]:
+                                flag = True
+                                for j in cells_divided[0]:
+                                    if j in self.get_all_neighbors(i[0], i[1]):
+                                        flag = False
+                                        break
+                                if flag: 
+                                    cells_divided[2].append(i)
+                                    cells_divided[1].remove(i)
+                                    break
+                            # match cells which are two cells away main cell
+                            # with those which are one cell away
+                            for i in cells_divided[2]:
                                 for j in cells_divided[1]:
-                                    if j in l:
-                                        print("lol")
+                                    if j in self.get_all_neighbors(i[0], i[1]):
                                         self.board[i[0]][i[1]]=0
                                         self.matching_blocks_anim(i, j)
-                                        # th.Thread(target=self.matching_blocks_anim,
-                                        #           args=(i, j, )).start()
                                         break
+                            # match cells which are two cells away main cell
+                            # with those which are one cell away
                             for i in cells_divided[1]:
-                                print("lol2")
+                                for j in cells_divided[0]:
+                                    if j in self.get_all_neighbors(i[0], i[1]):
+                                        self.board[i[0]][i[1]]=0
+                                        self.matching_blocks_anim(i, j)
+                                        break
+                            # match cells which are around main cell 
+                            # with main one
+                            for i in cells_divided[0]:
                                 self.board[i[0]][i[1]]=0
                                 self.matching_blocks_anim(i, cell_main)
-                            self.board[cell_main[0]][cell_main[1]]+=1
+                            if self.board[cell_main[0]][cell_main[1]]<8:
+                                self.board[cell_main[0]][cell_main[1]]+=1
+                            if (self.board[cell_main[0]][cell_main[1]]>self.unlocked_block 
+                                and self.unlocked_block<7):
+                                self.unlocked_block+=1
                             self.canvas.delete(f"block_placed{cell_main[0]}_{cell_main[1]}")
                             k = 7-cell_main[0] if cell_main[0]<=3 else cell_main[0]+1
                             self.create_hexagon(k*35+cell_main[1]*70, 200+60*cell_main[0], 
@@ -282,9 +309,10 @@ class App:
                         self.generate_blocks()
             else:
                 self.canvas.move(f"block{self.current_block}", 
-                                self.WIDTH//4*(self.current_block+1)-event.x, self.HEIGHT-40-event.y)
+                                self.WIDTH//4*(self.current_block+1)-event.x, self.HEIGHT-50-event.y)
             self.reset_gridcell()
             self.current_block = -1
+            self.flag_animation = False
 
 if __name__ == "__main__":
     app = App() 
