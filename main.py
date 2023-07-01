@@ -25,6 +25,7 @@ class App:
         self.unlocked_block = 2
         self.flag_working = True
         self.flag_animation = False
+        self.points = 0
         # init app
         self.master = tk.Tk()
         self.master.geometry(f"{self.WIDTH}x{self.HEIGHT}")
@@ -50,7 +51,7 @@ class App:
                                 state='disabled', tags=("points_main"))
         self.canvas.create_text(20, 60, justify='left', anchor='nw', text="Highscore: 0", fill="#FFFFFF",
                                 font=font.Font(family=self.CURRENT_FONT, size=12, weight='bold'),
-                                state='disabled', tags=("points_main"))
+                                state='disabled', tags=("points_highscore"))
         self.master.bind("<B1-Motion>", self.motion_left_clicked)
         self.master.bind("<ButtonRelease-1>", self.block_released)
         self.generate_blocks()
@@ -184,17 +185,33 @@ class App:
             time.sleep(0.001)
             self.canvas.update()
         self.canvas.delete(f"block_placed{c_from[0]}_{c_from[1]}")
-            
 
-        
-
+    def points_charger_anim(self, tag: str, start: int, stop: int, 
+                            steps: int = 10, 
+                            start_text: str = "", stop_text: str = "") -> None:  
+        """
+        Animation to go smoothly from start to stop value in text widget
+        """
+        self.flag_animation = True
+        for i in range(steps+1):
+            self.canvas.itemconfig(tag, 
+                text=start_text+str(int(start+(stop-start)*i/steps))+stop_text)
+            time.sleep(0.001)
+            self.canvas.update()
+        self.flag_animation = False
 
     def block_icon_input(self, index: int) -> None:
+        """
+        Method connected to blocks icons
+        """
         if not self.flag_animation:
             self.current_block = index
             self.canvas.tag_raise(f"block{index}")
 
     def motion_left_clicked(self, event) -> None:
+        """
+        Method connected to mouse move with left button pressed bind (<B1-Motion>)
+        """
         if self.current_block != -1 and not self.flag_animation:
             self.canvas.move(f"block{self.current_block}", 
                              event.x-self.canvas.coords(f"block{self.current_block}")[0], 
@@ -215,6 +232,9 @@ class App:
                     self.reset_gridcell()
 
     def block_released(self, event) -> None:
+        """
+        Method connected to left button release
+        """
         if self.current_block != -1 and not self.flag_animation:
             self.flag_animation = True
             if self.current_cell != [-1, -1]:
@@ -246,6 +266,8 @@ class App:
                                         f"block_placed{c}_{d}", 
                                         color=self.COLORS_PALETTE[0][f],
                                         text=str(f))
+                    combo_counter = 0
+                    points_counter = 0
                     while True:
                         flags = [False, False]
                         if len(self.find_all_same(a, b))>2: flags[0]=True
@@ -253,6 +275,7 @@ class App:
                         if not flags[0] and not flags[1]:
                             break
                         else:
+                            combo_counter += 1
                             if flags[0] and not flags[1]: cell_main = [a, b]
                             elif flags[1] and not flags[0]: cell_main = [c, d]
                             else: cell_main = [a, b] if self.board[a][b]<self.board[c][d] else [c, d]
@@ -299,13 +322,14 @@ class App:
                             for i in cells_divided[0]:
                                 self.board[i[0]][i[1]]=0
                                 self.matching_blocks_anim(i, cell_main)
+                            cell_type = self.board[cell_main[0]][cell_main[1]]
                             if self.board[cell_main[0]][cell_main[1]]<8:
                                 self.board[cell_main[0]][cell_main[1]]+=1
                             if (self.board[cell_main[0]][cell_main[1]]>self.unlocked_block
                                 and self.unlocked_block<7):
                                 self.unlocked_block+=1
+                            # delete old block and create new
                             if self.board[cell_main[0]][cell_main[1]]!=8:
-                                print(random.randint(100, 10000))
                                 self.canvas.delete(f"block_placed{cell_main[0]}_{cell_main[1]}")
                             k = 7-cell_main[0] if cell_main[0]<=3 else cell_main[0]+1
                             self.create_hexagon(k*35+cell_main[1]*70, 200+60*cell_main[0], 
@@ -313,17 +337,22 @@ class App:
                                         color=self.COLORS_PALETTE[0][self.board[cell_main[0]][cell_main[1]]],
                                         text=str(self.board[cell_main[0]][cell_main[1]]))
                             self.canvas.update()
+                            # optional breaking blocks around if block is 8th one
                             if self.board[cell_main[0]][cell_main[1]]==8:
                                 l = [x for x in self.get_all_neighbors(cell_main[0], cell_main[1])
                                      if self.board[x[0]][x[1]]!=0 and x!=cell_main]
                                 self.board[cell_main[0]][cell_main[1]]=0
                                 for i in l:
                                     self.matching_blocks_anim(i, cell_main)
+                                    points_counter += self.board[i[0]][i[1]]
                                     self.board[i[0]][i[1]]=0
                                 self.canvas.delete(f"block_placed{cell_main[0]}_{cell_main[1]}")
                                 self.canvas.update()
-                                        
-                                        
+                            points_counter += len(cells)*cell_type
+                    points_counter *= combo_counter                 
+                    self.points += points_counter
+                    if points_counter>0: self.points_charger_anim("points_main", 
+                        self.points-points_counter, self.points, start_text="Score: ")  
 
                     self.blocks_to_choose[self.current_block] = -1
                     if self.blocks_to_choose.count(-1)==3:
