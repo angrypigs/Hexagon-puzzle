@@ -13,6 +13,7 @@ class App:
         # declare constants
         self.WIDTH = 700
         self.HEIGHT = 900
+        self.CURRENT_FONT = "Gill Sans MT"
         self.OTHER_COLORS = [["#174872", "#2169A6"]]
         self.COLORS_PALETTE = [["", "#A621F4", "#F4EA53", "#44C7F3", "#F38930",
                                 "#49E9C6", "#F23F4A", "#48DA57", "#8F53EE"]]
@@ -34,6 +35,7 @@ class App:
         self.canvas.place(x=0,y=0)
         self.canvas.create_rectangle(0, 0, self.WIDTH, self.HEIGHT,
                                      fill="#0C2A43", tags=("bg"))
+        # create cells
         for i in range(4):
             for j in range(4+i):
                 self.create_hexagon((7-i)*35+j*70, 200+60*i, (f"cell{i}_{j}"), 
@@ -42,6 +44,13 @@ class App:
             for j in range(10-i):
                 self.create_hexagon((i+1)*35+j*70, 200+60*i, (f"cell{i}_{j}"), 
                                     self.OTHER_COLORS[0][0])
+        # create texts
+        self.canvas.create_text(20, 16, justify='left', anchor='nw', text="Score: 0", fill="#FFFFFF",
+                                font=font.Font(family=self.CURRENT_FONT, size=24, weight='bold'),
+                                state='disabled', tags=("points_main"))
+        self.canvas.create_text(20, 60, justify='left', anchor='nw', text="Highscore: 0", fill="#FFFFFF",
+                                font=font.Font(family=self.CURRENT_FONT, size=12, weight='bold'),
+                                state='disabled', tags=("points_main"))
         self.master.bind("<B1-Motion>", self.motion_left_clicked)
         self.master.bind("<ButtonRelease-1>", self.block_released)
         self.generate_blocks()
@@ -105,7 +114,7 @@ class App:
         if text != "": self.canvas.create_text(x, y, text=text, state='disabled',
                                                justify='center', anchor='center',
                                                font=font.Font(size=int(20*size), 
-                                                              family="Helvetica", weight='bold'),
+                                                              family=self.CURRENT_FONT, weight='bold'),
                                                tags=global_tags)
             
     def create_hexagon_block(self, x: int, y: int, mode: int, numbers: list|int, 
@@ -265,7 +274,7 @@ class App:
                                     if j in self.get_all_neighbors(i[0], i[1]):
                                         flag = False
                                         break
-                                if flag: 
+                                if flag:
                                     cells_divided[2].append(i)
                                     cells_divided[1].remove(i)
                                     break
@@ -292,15 +301,27 @@ class App:
                                 self.matching_blocks_anim(i, cell_main)
                             if self.board[cell_main[0]][cell_main[1]]<8:
                                 self.board[cell_main[0]][cell_main[1]]+=1
-                            if (self.board[cell_main[0]][cell_main[1]]>self.unlocked_block 
+                            if (self.board[cell_main[0]][cell_main[1]]>self.unlocked_block
                                 and self.unlocked_block<7):
                                 self.unlocked_block+=1
-                            self.canvas.delete(f"block_placed{cell_main[0]}_{cell_main[1]}")
+                            if self.board[cell_main[0]][cell_main[1]]!=8:
+                                print(random.randint(100, 10000))
+                                self.canvas.delete(f"block_placed{cell_main[0]}_{cell_main[1]}")
                             k = 7-cell_main[0] if cell_main[0]<=3 else cell_main[0]+1
                             self.create_hexagon(k*35+cell_main[1]*70, 200+60*cell_main[0], 
                                         f"block_placed{cell_main[0]}_{cell_main[1]}", 
                                         color=self.COLORS_PALETTE[0][self.board[cell_main[0]][cell_main[1]]],
                                         text=str(self.board[cell_main[0]][cell_main[1]]))
+                            self.canvas.update()
+                            if self.board[cell_main[0]][cell_main[1]]==8:
+                                l = [x for x in self.get_all_neighbors(cell_main[0], cell_main[1])
+                                     if self.board[x[0]][x[1]]!=0 and x!=cell_main]
+                                self.board[cell_main[0]][cell_main[1]]=0
+                                for i in l:
+                                    self.matching_blocks_anim(i, cell_main)
+                                    self.board[i[0]][i[1]]=0
+                                self.canvas.delete(f"block_placed{cell_main[0]}_{cell_main[1]}")
+                                self.canvas.update()
                                         
                                         
 
@@ -315,4 +336,4 @@ class App:
             self.flag_animation = False
 
 if __name__ == "__main__":
-    app = App() 
+    app = App()
