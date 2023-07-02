@@ -14,16 +14,20 @@ class App:
         self.WIDTH = 700
         self.HEIGHT = 900
         self.CURRENT_FONT = "Gill Sans MT"
-        self.OTHER_COLORS = [["#174872", "#2169A6"]]
+        # colors for GUIs (0 - bg, 1 - windows bg)
+        self.GUI_COLORS = [["#0C2A43", "#103A5C"]]
+        # colors for cells
         self.COLORS_PALETTE = [["", "#A621F4", "#F4EA53", "#44C7F3", "#F38930",
                                 "#49E9C6", "#F23F4A", "#48DA57", "#8F53EE"]]
+        # other colors (0 - normal cell, 1 - active cell)
+        self.OTHER_COLORS = [["#174872", "#2169A6"]]
         # declare variables
         self.board = [[0 for i in range(j)] for j in [4, 5, 6, 7, 6, 5, 4]]
         self.current_cell = [-1, -1]
         self.current_block = -1
         self.blocks_to_choose = [-1, -1, -1]
         self.unlocked_block = 2
-        self.flag_working = True
+        self.flag_menu = False
         self.flag_animation = False
         self.points = 0
         # init app
@@ -34,8 +38,9 @@ class App:
         self.canvas = tk.Canvas(self.master, height=self.HEIGHT, width=self.WIDTH,
                                 bd=0, highlightthickness=0, bg="#123C61")
         self.canvas.place(x=0,y=0)
+        self.normal_font = lambda s, w: font.Font(family=self.CURRENT_FONT, size=s, weight=w)
         self.canvas.create_rectangle(0, 0, self.WIDTH, self.HEIGHT,
-                                     fill="#0C2A43", tags=("bg"))
+                                     fill=self.GUI_COLORS[0][0], tags=("bg"))
         # create cells
         for i in range(4):
             for j in range(4+i):
@@ -47,10 +52,10 @@ class App:
                                     self.OTHER_COLORS[0][0])
         # create texts
         self.canvas.create_text(20, 16, justify='left', anchor='nw', text="Score: 0", fill="#FFFFFF",
-                                font=font.Font(family=self.CURRENT_FONT, size=24, weight='bold'),
+                                font=self.normal_font(24, 'bold'),
                                 state='disabled', tags=("points_main"))
         self.canvas.create_text(20, 60, justify='left', anchor='nw', text="Highscore: 0", fill="#FFFFFF",
-                                font=font.Font(family=self.CURRENT_FONT, size=12, weight='bold'),
+                                font=self.normal_font(12, 'bold'),
                                 state='disabled', tags=("points_highscore"))
         self.master.bind("<B1-Motion>", self.motion_left_clicked)
         self.master.bind("<ButtonRelease-1>", self.block_released)
@@ -114,8 +119,7 @@ class App:
                                     fill=color, tags=global_tags, width=3*size, outline="#000000")
         if text != "": self.canvas.create_text(x, y, text=text, state='disabled',
                                                justify='center', anchor='center',
-                                               font=font.Font(size=int(20*size), 
-                                                              family=self.CURRENT_FONT, weight='bold'),
+                                               font=self.normal_font(int(20*size), 'bold'), 
                                                tags=global_tags)
             
     def create_hexagon_block(self, x: int, y: int, mode: int, numbers: list|int, 
@@ -169,6 +173,54 @@ class App:
             for j in range(7-abs(i-3)):
                 self.canvas.itemconfig(f"cell{i}_{j}", fill=self.OTHER_COLORS[0][0])
 
+    def lose_check(self) -> None:
+        for k in [x for x in range(3) if self.blocks_to_choose[x] !=-1]:
+            for i in range(7):
+                for j in range(7-abs(i-3)):
+                    if self.check_if_fits(i, j, k)!=False:
+                        return
+        self.flag_menu = True
+        self.canvas.create_rectangle(self.WIDTH//2-150, self.HEIGHT//2-100,
+                                     self.WIDTH//2+150, self.HEIGHT//2+100,
+                                     fill=self.GUI_COLORS[0][1], tags=("lose_panel"))
+        self.canvas.create_text(self.WIDTH//2, self.HEIGHT//2-50,
+                                justify='center', anchor='center',
+                                font=self.normal_font(30, 'normal'),
+                                text="Game over", tags=("lose_panel"))
+        self.canvas.create_text(self.WIDTH//2, self.HEIGHT//2,
+                                justify='center', anchor='center',
+                                font=self.normal_font(20, 'normal'),
+                                text=f"Score: {self.points-1000 if self.points>1000 else 0}", 
+                                tags=("lose_panel", "lose_score"))
+        self.canvas.create_rectangle(self.WIDTH//2-90, self.HEIGHT//2+30,
+                                     self.WIDTH//2+90, self.HEIGHT//2+70,
+                                     fill=self.OTHER_COLORS[0][0],
+                                     tags=("lose_panel", "lose_resume_btn"))
+        self.canvas.create_text(self.WIDTH//2, self.HEIGHT//2+50,
+                                justify='center', anchor='center',
+                                font=self.normal_font(20, 'normal'),
+                                text="Resume game", 
+                                tags=("lose_panel"), state='disabled')
+        self.points_charger_anim("lose_score", self.points-1000, self.points,
+                                 start_text="Score: ", steps=25)
+        self.canvas.tag_bind("lose_resume_btn", "<Button-1>", 
+                             lambda event: self.new_game())
+
+    def new_game(self) -> None:
+        self.canvas.delete("lose_panel")
+        for i in range(7):
+            for j in range(7-abs(i-3)):
+                self.board[i][j]=0
+                self.canvas.delete(f"block_placed{i}_{j}")
+        for i in range(3):
+            self.canvas.delete(f"block{i}")
+        self.generate_blocks()
+        self.reset_gridcell()
+        n = self.points
+        self.points = 0
+        self.points_charger_anim("points_main", n, 0, steps=30, start_text="Score: ")
+        self.flag_menu = False
+
     def matching_blocks_anim(self, c_from: list, c_to: list) -> None:
         """
         Little animation for "matching" blocks
@@ -200,11 +252,13 @@ class App:
             self.canvas.update()
         self.flag_animation = False
 
+
+
     def block_icon_input(self, index: int) -> None:
         """
         Method connected to blocks icons
         """
-        if not self.flag_animation:
+        if not self.flag_animation and not self.flag_menu:
             self.current_block = index
             self.canvas.tag_raise(f"block{index}")
 
@@ -212,7 +266,7 @@ class App:
         """
         Method connected to mouse move with left button pressed bind (<B1-Motion>)
         """
-        if self.current_block != -1 and not self.flag_animation:
+        if self.current_block != -1 and not self.flag_animation and not self.flag_menu:
             self.canvas.move(f"block{self.current_block}", 
                              event.x-self.canvas.coords(f"block{self.current_block}")[0], 
                              event.y-self.canvas.coords(f"block{self.current_block}")[1]-85)
@@ -235,7 +289,7 @@ class App:
         """
         Method connected to left button release
         """
-        if self.current_block != -1 and not self.flag_animation:
+        if self.current_block != -1 and not self.flag_animation and not self.flag_menu:
             self.flag_animation = True
             if self.current_cell != [-1, -1]:
                 # get coords of both possible cells
@@ -339,6 +393,7 @@ class App:
                             self.canvas.update()
                             # optional breaking blocks around if block is 8th one
                             if self.board[cell_main[0]][cell_main[1]]==8:
+                                self.reset_gridcell()
                                 l = [x for x in self.get_all_neighbors(cell_main[0], cell_main[1])
                                      if self.board[x[0]][x[1]]!=0 and x!=cell_main]
                                 self.board[cell_main[0]][cell_main[1]]=0
@@ -363,6 +418,7 @@ class App:
             self.reset_gridcell()
             self.current_block = -1
             self.flag_animation = False
+            self.lose_check()
 
 if __name__ == "__main__":
     app = App()
