@@ -4,6 +4,7 @@ import random
 import time
 from tkinter import font
 from operator import itemgetter
+import os, sys
 
 
 
@@ -30,6 +31,7 @@ class App:
         self.flag_menu = False
         self.flag_animation = False
         self.points = 0
+        self.highscore_points = 0
         # init app
         self.master = tk.Tk()
         self.master.geometry(f"{self.WIDTH}x{self.HEIGHT}")
@@ -252,6 +254,36 @@ class App:
             self.canvas.update()
         self.flag_animation = False
 
+    def save_data(self) -> None:
+        file = open(os.path.join(sys.path[0], "save.txt"), "w")
+        LETTERS = [chr(x) for x in range(65, 90)]
+        random_string = lambda start, stop: "".join([random.choice(LETTERS) for x in 
+                                                     range(random.randint(start, stop))])
+        for i in range(7):
+            text = ""
+            for j in range(7-abs(i-3)):
+                text += random_string(30, 50)+str(self.board[i][j])
+            text += random_string(30, 50)+"\n"
+            file.write(text)
+        text = ""
+        for i in str(self.points):
+            text += random_string(40, 60)+i
+        text += random_string(40, 60)+"\n"
+        file.write(text)
+        text = ""
+        for i in str(self.highscore_points):
+            text += random_string(40, 60)+i
+        text += random_string(40, 60)+"\n"
+        file.write(text)
+        for i in range(3):
+            text = random_string(40, 60)
+            if type(self.blocks_to_choose[i])==int: text += "-1"+random_string(40, 60)
+            else:
+                for j in self.blocks_to_choose[i]:
+                    text += str(j)+random_string(40, 60)
+            file.write(text)
+        file.close()
+
 
 
     def block_icon_input(self, index: int) -> None:
@@ -404,6 +436,7 @@ class App:
                                 self.canvas.delete(f"block_placed{cell_main[0]}_{cell_main[1]}")
                                 self.canvas.update()
                             points_counter += len(cells)*cell_type
+                            self.save_data()
                     points_counter *= combo_counter                 
                     self.points += points_counter
                     if points_counter>0: self.points_charger_anim("points_main", 
