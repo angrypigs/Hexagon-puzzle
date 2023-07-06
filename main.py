@@ -32,11 +32,19 @@ class App:
         self.flag_animation = False
         self.points = 0
         self.highscore_points = 0
+        # load game save if it exists
+        if os.path.exists(os.path.join(sys.path[0], "save.txt")):
+            if not self.load_data():
+                self.board = [[0 for i in range(j)] for j in [4, 5, 6, 7, 6, 5, 4]]
+                self.blocks_to_choose = [-1, -1, -1]
+                self.points = 0
+                self.highscore_points = 0
         # init app
         self.master = tk.Tk()
         self.master.geometry(f"{self.WIDTH}x{self.HEIGHT}")
         self.master.title("Hexagon puzzle")
         self.master.resizable(False, False)
+        # self.master.protocol("WM_DELETE_WINDOW", self.close_app)
         self.canvas = tk.Canvas(self.master, height=self.HEIGHT, width=self.WIDTH,
                                 bd=0, highlightthickness=0, bg="#123C61")
         self.canvas.place(x=0,y=0)
@@ -44,24 +52,28 @@ class App:
         self.canvas.create_rectangle(0, 0, self.WIDTH, self.HEIGHT,
                                      fill=self.GUI_COLORS[0][0], tags=("bg"))
         # create cells
-        for i in range(4):
-            for j in range(4+i):
-                self.create_hexagon((7-i)*35+j*70, 200+60*i, (f"cell{i}_{j}"), 
+        for i in range(7):
+            for j in range(7-abs(i-3)):
+                k = 7-i if i<=3 else i+1
+                self.create_hexagon(k*35+j*70, 200+60*i, (f"cell{i}_{j}"), 
                                     self.OTHER_COLORS[0][0])
-        for i in range(4, 7):
-            for j in range(10-i):
-                self.create_hexagon((i+1)*35+j*70, 200+60*i, (f"cell{i}_{j}"), 
-                                    self.OTHER_COLORS[0][0])
+                if self.board[i][j]!=0:
+                    self.create_gridcell_block(i, j)
         # create texts
-        self.canvas.create_text(20, 16, justify='left', anchor='nw', text="Score: 0", fill="#FFFFFF",
+        self.canvas.create_text(20, 16, justify='left', anchor='nw', 
+                                text=f"Score: {self.points}", fill="#FFFFFF",
                                 font=self.normal_font(24, 'bold'),
                                 state='disabled', tags=("points_main"))
-        self.canvas.create_text(20, 60, justify='left', anchor='nw', text="Highscore: 0", fill="#FFFFFF",
-                                font=self.normal_font(12, 'bold'),
+        self.canvas.create_text(20, 60, justify='left', anchor='nw', 
+                                text=f"Highscore: {self.highscore_points}", 
+                                fill="#FFFFFF", font=self.normal_font(12, 'bold'),
                                 state='disabled', tags=("points_highscore"))
         self.master.bind("<B1-Motion>", self.motion_left_clicked)
         self.master.bind("<ButtonRelease-1>", self.block_released)
-        self.generate_blocks()
+        for i in range(3):
+            if self.blocks_to_choose[i]!=-1:
+                self.generate_blocks(i, self.blocks_to_choose[i])
+        self.canvas.update()
         self.master.mainloop()
 
     def get_all_neighbors(self, a: int, b: int) -> list:
@@ -156,8 +168,8 @@ class App:
         """
         Generate three blocks under the gridcell or the specific one
         """
+        link = lambda x: (lambda event: self.block_icon_input(x))
         if index == -1:
-            link = lambda x: (lambda event: self.block_icon_input(x))
             for i in range(3):
                 self.blocks_to_choose[i] = [random.choice([0, 0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3])]
                 if self.blocks_to_choose[i][0] != 0:
@@ -169,6 +181,23 @@ class App:
                                           self.blocks_to_choose[i][0], l, 
                                           (f"block{i}"), f"block{i}_coords")
                 self.canvas.tag_bind(f"block{i}", "<Button-1>", link(i))
+        else:
+            l = self.blocks_to_choose[index]
+            self.create_hexagon_block(self.WIDTH//4*(index+1), self.HEIGHT-100,
+                                            l[0], l[1] if l[0]==0 else l[1:],
+                                          (f"block{index}"), f"block{index}_coords")
+            self.canvas.tag_bind(f"block{index}", "<Button-1>", link(index))
+
+    def create_gridcell_block(self, a: int, b: int) -> None:
+        """
+        Creates a block over the gridcell at given coords
+        """
+        k = 7-a if a<=3 else a+1
+        self.create_hexagon(k*35+b*70, 200+60*a, 
+                    f"block_placed{a}_{b}", 
+                    color=self.COLORS_PALETTE[0][self.board[a][b]],
+                    text=str(self.board[a][b]))
+
 
     def reset_gridcell(self) -> None:
         for i in range(7):
@@ -255,35 +284,59 @@ class App:
         self.flag_animation = False
 
     def save_data(self) -> None:
+        """
+        Save game progress to save.txt
+        """
         file = open(os.path.join(sys.path[0], "save.txt"), "w")
-        LETTERS = [chr(x) for x in range(65, 90)]
-        random_string = lambda start, stop: "".join([random.choice(LETTERS) for x in 
-                                                     range(random.randint(start, stop))])
+        def random_string() -> str: return " " * random.randint(200, 300)
         for i in range(7):
             text = ""
             for j in range(7-abs(i-3)):
-                text += random_string(30, 50)+str(self.board[i][j])
-            text += random_string(30, 50)+"\n"
+                text += random_string()+str(self.board[i][j])
+            text += random_string()+"\n"
             file.write(text)
         text = ""
         for i in str(self.points):
-            text += random_string(40, 60)+i
-        text += random_string(40, 60)+"\n"
+            text += random_string()+i
+        text += random_string()+"\n"
         file.write(text)
         text = ""
         for i in str(self.highscore_points):
-            text += random_string(40, 60)+i
-        text += random_string(40, 60)+"\n"
+            text += random_string()+i
+        text += random_string()+"\n"
         file.write(text)
         for i in range(3):
-            text = random_string(40, 60)
-            if type(self.blocks_to_choose[i])==int: text += "-1"+random_string(40, 60)
+            text = random_string()
+            if type(self.blocks_to_choose[i])==int: text += "-1"+random_string()
             else:
                 for j in self.blocks_to_choose[i]:
-                    text += str(j)+random_string(40, 60)
-            file.write(text)
+                    text += str(j)+random_string()
+            file.write(text+"\n")
         file.close()
 
+    def load_data(self) -> bool:
+        """
+        Loads game progress from save.txt
+        """
+        try:
+            file = open(os.path.join(sys.path[0], "save.txt"), "r")
+            file_lines = [x.rstrip() for x in file.readlines()]
+            for i in range(7):
+                l = [int(x) for x in file_lines[i].split()]
+                for j in range(7-abs(i-3)):
+                    self.board[i][j] = l[j]
+            self.points = int("".join(file_lines[7].split()))
+            self.highscore_points = int("".join(file_lines[8].split()))
+            for i in range(3):
+                l = [int(x) for x in file_lines[i+9].split()]
+                if l[0] == -1: self.blocks_to_choose[i] = -1
+                else: 
+                    self.blocks_to_choose[i] = []
+                    for j in l: self.blocks_to_choose[i].append(j)
+            return True
+        except Exception as e:
+            print(e)
+            return False
 
 
     def block_icon_input(self, index: int) -> None:
@@ -340,18 +393,9 @@ class App:
                     if [a, b]!=[c, d]:
                         self.board[c][d] = self.blocks_to_choose[self.current_block][2]
                         f = self.blocks_to_choose[self.current_block][2]
-                    k = 7-a if a<=3 else a+1
-                    # create blocks on gridcell
-                    self.create_hexagon(k*35+b*70, 200+60*a, 
-                                        f"block_placed{a}_{b}", 
-                                        color=self.COLORS_PALETTE[0][e],
-                                        text=str(e))
+                    self.create_gridcell_block(a, b)
                     if f!=-1: 
-                        k = 7-c if c<=3 else c+1
-                        self.create_hexagon(k*35+d*70, 200+60*c, 
-                                        f"block_placed{c}_{d}", 
-                                        color=self.COLORS_PALETTE[0][f],
-                                        text=str(f))
+                        self.create_gridcell_block(c, d)
                     combo_counter = 0
                     points_counter = 0
                     while True:
@@ -417,11 +461,7 @@ class App:
                             # delete old block and create new
                             if self.board[cell_main[0]][cell_main[1]]!=8:
                                 self.canvas.delete(f"block_placed{cell_main[0]}_{cell_main[1]}")
-                            k = 7-cell_main[0] if cell_main[0]<=3 else cell_main[0]+1
-                            self.create_hexagon(k*35+cell_main[1]*70, 200+60*cell_main[0], 
-                                        f"block_placed{cell_main[0]}_{cell_main[1]}", 
-                                        color=self.COLORS_PALETTE[0][self.board[cell_main[0]][cell_main[1]]],
-                                        text=str(self.board[cell_main[0]][cell_main[1]]))
+                            self.create_gridcell_block(cell_main[0], cell_main[1])
                             self.canvas.update()
                             # optional breaking blocks around if block is 8th one
                             if self.board[cell_main[0]][cell_main[1]]==8:
@@ -436,7 +476,6 @@ class App:
                                 self.canvas.delete(f"block_placed{cell_main[0]}_{cell_main[1]}")
                                 self.canvas.update()
                             points_counter += len(cells)*cell_type
-                            self.save_data()
                     points_counter *= combo_counter                 
                     self.points += points_counter
                     if points_counter>0: self.points_charger_anim("points_main", 
@@ -448,10 +487,19 @@ class App:
             else:
                 self.canvas.move(f"block{self.current_block}", 
                                 self.WIDTH//4*(self.current_block+1)-event.x, self.HEIGHT-50-event.y)
+            self.save_data()
             self.reset_gridcell()
             self.current_block = -1
-            self.flag_animation = False
             self.lose_check()
+            self.flag_animation = False
+
+    # def close_app(self) -> None:
+    #     def po_twojej_pysznej_zupie() -> None:
+    #         print("lolol")
+    #         if self.flag_animation:
+    #             self.master.after(1, po_twojej_pysznej_zupie)
+    #     self.master.after(1, po_twojej_pysznej_zupie)
+    #     self.master.destroy()
 
 if __name__ == "__main__":
     app = App()
