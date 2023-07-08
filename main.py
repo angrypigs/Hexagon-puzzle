@@ -30,6 +30,7 @@ class App:
         self.unlocked_block = 2
         self.flag_menu = False
         self.flag_animation = False
+        self.flag_close = False
         self.points = 0
         self.highscore_points = 0
         # load game save if it exists
@@ -74,7 +75,10 @@ class App:
             if self.blocks_to_choose[i]!=-1:
                 self.generate_blocks(i, self.blocks_to_choose[i])
         self.canvas.update()
+        self.lose_check()
         self.master.mainloop()
+
+    # hexagon matrix handling methods
 
     def get_all_neighbors(self, a: int, b: int) -> list:
         """
@@ -121,11 +125,13 @@ class App:
             else: n = len(cells)
         return cells
 
+    # generating hexagon blocks methods
+
     def create_hexagon(self, x: float, y: float, global_tags: tuple,  
                        color: str = "", text: str = "", size: float = 1, 
                        coords_tag: str = "") -> None:
         """
-        Function to create hexagon-like polygon
+        Creates hexagon-like polygon
         """
         tags_list2 = global_tags + (coords_tag, ) if coords_tag!="" else global_tags
         self.canvas.create_polygon([x, y-40*size, x+35*size, y-20*size, x+35*size, y+20*size,
@@ -139,7 +145,7 @@ class App:
     def create_hexagon_block(self, x: int, y: int, mode: int, numbers: list|int, 
                              global_tags: tuple, coords_tag: str = "") -> None:
         """
-        Function to create single or double hexagon blocks ready to put in game
+        Creates single or double hexagon blocks ready to put in game
         """
         global_tags = tuple(global_tags.split(" "))
         if mode==0:
@@ -166,7 +172,7 @@ class App:
 
     def generate_blocks(self, index: int = -1, block: list = []) -> None:
         """
-        Generate three blocks under the gridcell or the specific one
+        Generates three blocks under the gridcell or the specific one
         """
         link = lambda x: (lambda event: self.block_icon_input(x))
         if index == -1:
@@ -198,13 +204,20 @@ class App:
                     color=self.COLORS_PALETTE[0][self.board[a][b]],
                     text=str(self.board[a][b]))
 
+    # other methods (cosmetical, game status)
 
     def reset_gridcell(self) -> None:
+        """
+        Resets highlight of all cells
+        """
         for i in range(7):
             for j in range(7-abs(i-3)):
                 self.canvas.itemconfig(f"cell{i}_{j}", fill=self.OTHER_COLORS[0][0])
 
     def lose_check(self) -> None:
+        """
+        Checks if game is over; if yes, creates lose window with button to play again
+        """
         for k in [x for x in range(3) if self.blocks_to_choose[x] !=-1]:
             for i in range(7):
                 for j in range(7-abs(i-3)):
@@ -238,6 +251,9 @@ class App:
                              lambda event: self.new_game())
 
     def new_game(self) -> None:
+        """
+        Deletes all old elements and generate all from beginning
+        """
         self.canvas.delete("lose_panel")
         for i in range(7):
             for j in range(7-abs(i-3)):
@@ -252,6 +268,8 @@ class App:
         self.points_charger_anim("points_main", n, 0, steps=30, start_text="Score: ")
         self.flag_menu = False
 
+    # animation methods
+
     def matching_blocks_anim(self, c_from: list, c_to: list) -> None:
         """
         Little animation for "matching" blocks
@@ -262,10 +280,10 @@ class App:
         c1_from = [k*35+c_from[1]*70, 200+60*c_from[0]]
         k = 7-c_to[0] if c_to[0] < 4 else c_to[0]+1
         c1_to = [k*35+c_to[1]*70, 200+60*c_to[0]]
-        for i in range(15):
+        for i in range(16):
             self.canvas.move(f"block_placed{c_from[0]}_{c_from[1]}",
-                             (c1_to[0]-c1_from[0])//15, (c1_to[1]-c1_from[1])//15)
-            time.sleep(0.001)
+                             (c1_to[0]-c1_from[0])//15, (c1_to[1]-c1_from[1])//16)
+            if not self.flag_close: time.sleep(0.001)
             self.canvas.update()
         self.canvas.delete(f"block_placed{c_from[0]}_{c_from[1]}")
 
@@ -279,9 +297,11 @@ class App:
         for i in range(steps+1):
             self.canvas.itemconfig(tag, 
                 text=start_text+str(int(start+(stop-start)*i/steps))+stop_text)
-            time.sleep(0.001)
+            if not self.flag_close: time.sleep(0.001)
             self.canvas.update()
         self.flag_animation = False
+    
+    # save handling methods
 
     def save_data(self) -> None:
         """
@@ -289,12 +309,14 @@ class App:
         """
         file = open(os.path.join(sys.path[0], "save.txt"), "w")
         def random_string() -> str: return " " * random.randint(200, 300)
+        # write board
         for i in range(7):
             text = ""
             for j in range(7-abs(i-3)):
                 text += random_string()+str(self.board[i][j])
             text += random_string()+"\n"
             file.write(text)
+        # write score and highscore
         text = ""
         for i in str(self.points):
             text += random_string()+i
@@ -305,6 +327,7 @@ class App:
             text += random_string()+i
         text += random_string()+"\n"
         file.write(text)
+        # write current blocks to choose
         for i in range(3):
             text = random_string()
             if type(self.blocks_to_choose[i])==int: text += "-1"+random_string()
@@ -338,6 +361,7 @@ class App:
             print(e)
             return False
 
+    # event methods
 
     def block_icon_input(self, index: int) -> None:
         """
@@ -494,6 +518,11 @@ class App:
             self.flag_animation = False
 
     def close_app(self) -> None:
+        """
+        Close app after all the animations are gone
+        """
+        print("lol")
+        self.flag_close = True
         def wait() -> None:
             while self.flag_animation: pass
             self.master.destroy()
