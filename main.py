@@ -44,7 +44,7 @@ class App:
         self.master.geometry(f"{self.WIDTH}x{self.HEIGHT}")
         self.master.title("Hexagon puzzle")
         self.master.resizable(False, False)
-        # self.master.protocol("WM_DELETE_WINDOW", self.close_app)
+        self.master.protocol("WM_DELETE_WINDOW", self.close_app)
         self.canvas = tk.Canvas(self.master, height=self.HEIGHT, width=self.WIDTH,
                                 bd=0, highlightthickness=0, bg="#123C61")
         self.canvas.place(x=0,y=0)
@@ -493,13 +493,13 @@ class App:
             self.lose_check()
             self.flag_animation = False
 
-    # def close_app(self) -> None:
-    #     def po_twojej_pysznej_zupie() -> None:
-    #         print("lolol")
-    #         if self.flag_animation:
-    #             self.master.after(1, po_twojej_pysznej_zupie)
-    #     self.master.after(1, po_twojej_pysznej_zupie)
-    #     self.master.destroy()
+    def close_app(self) -> None:
+        def wait() -> None:
+            while self.flag_animation: pass
+            self.master.destroy()
+        thread = th.Thread(target=wait)
+        thread.daemon = True
+        thread.start()
 
 if __name__ == "__main__":
     app = App()
