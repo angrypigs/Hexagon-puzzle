@@ -31,6 +31,7 @@ class App:
         self.flag_menu = False
         self.flag_animation = False
         self.flag_close = False
+        self.flag_erase = False
         self.points = 0
         self.highscore_points = 0
         # load game save if it exists
@@ -53,11 +54,13 @@ class App:
         self.canvas.create_rectangle(0, 0, self.WIDTH, self.HEIGHT,
                                      fill=self.GUI_COLORS[0][0], tags=("bg"))
         # create cells
+        # link = lambda a, b: (lambda event: self.bg_pressed(a, b))
         for i in range(7):
             for j in range(7-abs(i-3)):
                 k = 7-i if i<=3 else i+1
                 self.create_hexagon(k*35+j*70, 200+60*i, (f"cell{i}_{j}"), 
                                     self.OTHER_COLORS[0][0])
+                # self.canvas.tag_bind(f"cell{i}_{j}", "<Button-1>", link(i, j))
                 if self.board[i][j]!=0:
                     self.create_gridcell_block(i, j)
         # create texts
@@ -69,6 +72,16 @@ class App:
                                 text=f"Highscore: {self.highscore_points}", 
                                 fill="#FFFFFF", font=self.normal_font(12, 'bold'),
                                 state='disabled', tags=("points_highscore"))
+        help_list = [["erase_btn", "dump_btn", "back_btn"], ["\u2716", "\U0001F5D1", "\u2B8C"]]
+        for i in range(3):
+            self.canvas.create_oval(0.6*self.WIDTH+i*90, 40,
+                                    0.6*self.WIDTH+i*90+60, 100,
+                                    fill=self.OTHER_COLORS[0][0], width=3,
+                                    tags=help_list[0][i])
+            self.canvas.create_text(0.6*self.WIDTH+i*90+30, 70,
+                                    justify='center', anchor='center',
+                                    font=self.normal_font(20, 'normal'),
+                                    text=help_list[1][i], state='disabled')
         self.master.bind("<B1-Motion>", self.motion_left_clicked)
         self.master.bind("<ButtonRelease-1>", self.block_released)
         for i in range(3):
@@ -77,6 +90,9 @@ class App:
         self.canvas.update()
         self.lose_check()
         self.master.mainloop()
+
+    def bg_pressed(self, a: int, b: int) -> None:
+        print(a, b)
 
     # hexagon matrix handling methods
 
@@ -335,6 +351,7 @@ class App:
                 for j in self.blocks_to_choose[i]:
                     text += str(j)+random_string()
             file.write(text+"\n")
+        file.write(random_string()+str(self.unlocked_block)+"\n")
         file.close()
 
     def load_data(self) -> bool:
@@ -356,6 +373,7 @@ class App:
                 else: 
                     self.blocks_to_choose[i] = []
                     for j in l: self.blocks_to_choose[i].append(j)
+            self.unlocked_block = int("".join(file_lines[12].split()))
             return True
         except Exception as e:
             print(e)
