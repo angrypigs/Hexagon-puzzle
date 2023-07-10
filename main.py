@@ -26,6 +26,7 @@ class App:
         self.board = [[0 for i in range(j)] for j in [4, 5, 6, 7, 6, 5, 4]]
         self.current_cell = [-1, -1]
         self.current_block = -1
+        self.current_powerup = 0
         self.blocks_to_choose = [-1, -1, -1]
         self.unlocked_block = 2
         self.flag_menu = False
@@ -77,11 +78,12 @@ class App:
             self.canvas.create_oval(0.6*self.WIDTH+i*90, 40,
                                     0.6*self.WIDTH+i*90+60, 100,
                                     fill=self.OTHER_COLORS[0][0], width=3,
-                                    tags=help_list[0][i])
+                                    tags=(help_list[0][i]))
             self.canvas.create_text(0.6*self.WIDTH+i*90+30, 70,
                                     justify='center', anchor='center',
                                     font=self.normal_font(20, 'normal'),
-                                    text=help_list[1][i], state='disabled')
+                                    text=help_list[1][i], state='disabled', 
+                                    tags=(help_list[0][i]))
         self.master.bind("<B1-Motion>", self.motion_left_clicked)
         self.master.bind("<ButtonRelease-1>", self.block_released)
         for i in range(3):
@@ -204,9 +206,8 @@ class App:
                                           (f"block{i}"), f"block{i}_coords")
                 self.canvas.tag_bind(f"block{i}", "<Button-1>", link(i))
         else:
-            l = self.blocks_to_choose[index]
             self.create_hexagon_block(self.WIDTH//4*(index+1), self.HEIGHT-100,
-                                            l[0], l[1] if l[0]==0 else l[1:],
+                                            block[0], block[1] if block[0]==0 else block[1:],
                                           (f"block{index}"), f"block{index}_coords")
             self.canvas.tag_bind(f"block{index}", "<Button-1>", link(index))
 
@@ -396,7 +397,7 @@ class App:
         if self.current_block != -1 and not self.flag_animation and not self.flag_menu:
             self.canvas.move(f"block{self.current_block}", 
                              event.x-self.canvas.coords(f"block{self.current_block}")[0], 
-                             event.y-self.canvas.coords(f"block{self.current_block}")[1]-85)
+                             event.y-self.canvas.coords(f"block{self.current_block}")[1]-95)
             tag = self.canvas.itemcget(self.canvas.find_closest(event.x, event.y), "tags").split()[0]
             if "cell" in tag:
                 if [int(tag[4]), int(tag[6])] != self.current_cell and self.check_if_fits(
@@ -407,6 +408,10 @@ class App:
                     self.canvas.itemconfig(f"cell{a}_{b}", fill=self.OTHER_COLORS[0][1])
                     self.canvas.itemconfig(f"cell{c}_{d}", fill=self.OTHER_COLORS[0][1])
                     self.current_cell = [int(tag[4]), int(tag[6])]
+            elif tag=="dump_btn":
+                if self.current_cell != [-2, -2]:
+                    self.current_cell = [-2, -2]
+                    self.reset_gridcell()
             else:
                 if self.current_cell != [-1, -1]:
                     self.current_cell = [-1, -1]
@@ -418,7 +423,7 @@ class App:
         """
         if self.current_block != -1 and not self.flag_animation and not self.flag_menu:
             self.flag_animation = True
-            if self.current_cell != [-1, -1]:
+            if self.current_cell[0] >=0 and self.current_cell[1] >= 0:
                 # get coords of both possible cells
                 a, b = self.current_cell
                 c, d = self.get_second_block(
@@ -526,6 +531,16 @@ class App:
                     self.blocks_to_choose[self.current_block] = -1
                     if self.blocks_to_choose.count(-1)==3:
                         self.generate_blocks()
+            elif self.current_cell == [-2, -2]: 
+                self.canvas.delete(f"block{self.current_block}")
+                self.blocks_to_choose[self.current_block] = [random.randint(0, 3)]
+                self.blocks_to_choose[self.current_block].extend(
+                    random.sample(range(1, self.unlocked_block+1), 2) if
+                    self.blocks_to_choose[self.current_block] != 0 else 
+                    [random.choice(range(1, self.unlocked_block+1))]
+                )
+                self.generate_blocks(self.current_block,
+                                     self.blocks_to_choose[self.current_block])
             else:
                 self.canvas.move(f"block{self.current_block}", 
                                 self.WIDTH//4*(self.current_block+1)-event.x, self.HEIGHT-50-event.y)
@@ -539,14 +554,11 @@ class App:
         """
         Close app after all the animations are gone
         """
-        print("lol")
         self.flag_close = True
         def wait() -> None:
             while self.flag_animation: pass
             self.master.destroy()
-        thread = th.Thread(target=wait)
-        thread.daemon = True
-        thread.start()
+        th.Thread(target=wait, daemon=True).start()
 
 if __name__ == "__main__":
     app = App()
