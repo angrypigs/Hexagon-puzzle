@@ -73,7 +73,7 @@ class App:
                                 text=f"Highscore: {self.highscore_points}", 
                                 fill="#FFFFFF", font=self.normal_font(12, 'bold'),
                                 state='disabled', tags=("points_highscore"))
-        help_list = [["erase_btn", "dump_btn", "back_btn"], ["\u2716", "\U0001F5D1", "\u2B8C"]]
+        help_list = [["erase_btn", "dump_btn", "reroll_btn"], ["\u2716", "\U0001F5D1", '\U0001F3B2']]
         for i in range(3):
             self.canvas.create_oval(0.6*self.WIDTH+i*90, 40,
                                     0.6*self.WIDTH+i*90+60, 100,
@@ -81,20 +81,18 @@ class App:
                                     tags=(help_list[0][i]))
             self.canvas.create_text(0.6*self.WIDTH+i*90+30, 70,
                                     justify='center', anchor='center',
-                                    font=self.normal_font(20, 'normal'),
+                                    font=self.normal_font(24, 'normal'),
                                     text=help_list[1][i], state='disabled', 
                                     tags=(help_list[0][i]))
         self.master.bind("<B1-Motion>", self.motion_left_clicked)
         self.master.bind("<ButtonRelease-1>", self.block_released)
+        self.canvas.tag_bind(help_list[0][2], "<Button-1>", lambda e: self.reroll_cells())
         for i in range(3):
             if self.blocks_to_choose[i]!=-1:
                 self.generate_blocks(i, self.blocks_to_choose[i])
         self.canvas.update()
         self.lose_check()
         self.master.mainloop()
-
-    def bg_pressed(self, a: int, b: int) -> None:
-        print(a, b)
 
     # hexagon matrix handling methods
 
@@ -381,6 +379,22 @@ class App:
             return False
 
     # event methods
+
+    def reroll_cells(self) -> None:
+        """
+        Mixes all cells with themselves
+        """
+        empty_cells = [[i, j] for i in range(7) for j in range(7-abs(i-3))]
+        blocks = [self.board[i][j] for i in range(7) for j in range(7-abs(i-3))
+                  if self.board[i][j]!=0]
+        for i in empty_cells:
+            self.board[i[0]][i[1]] = 0
+            self.canvas.delete(f"block_placed{i[0]}_{i[1]}")
+        for i in blocks:
+            n = empty_cells.pop(random.randint(0, len(empty_cells)-1))
+            self.board[n[0]][n[1]] = i
+            self.create_gridcell_block(n[0], n[1])
+
 
     def block_icon_input(self, index: int) -> None:
         """
