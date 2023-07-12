@@ -55,13 +55,11 @@ class App:
         self.canvas.create_rectangle(0, 0, self.WIDTH, self.HEIGHT,
                                      fill=self.GUI_COLORS[0][0], tags=("bg"))
         # create cells
-        # link = lambda a, b: (lambda event: self.bg_pressed(a, b))
         for i in range(7):
             for j in range(7-abs(i-3)):
                 k = 7-i if i<=3 else i+1
                 self.create_hexagon(k*35+j*70, 200+60*i, (f"cell{i}_{j}"), 
                                     self.OTHER_COLORS[0][0])
-                # self.canvas.tag_bind(f"cell{i}_{j}", "<Button-1>", link(i, j))
                 if self.board[i][j]!=0:
                     self.create_gridcell_block(i, j)
         # create texts
@@ -83,9 +81,13 @@ class App:
                                     justify='center', anchor='center',
                                     font=self.normal_font(24, 'normal'),
                                     text=help_list[1][i], state='disabled', 
-                                    tags=(help_list[0][i]))
+                                    tags=(help_list[0][i]+"text"))
         self.master.bind("<B1-Motion>", self.motion_left_clicked)
         self.master.bind("<ButtonRelease-1>", self.block_released)
+        def turn_on_erase() -> None: 
+            self.flag_erase = not self.flag_erase
+            self.buttons_highlight(self.flag_erase, "erase_btn")
+        self.canvas.tag_bind(help_list[0][0], "<Button-1>", lambda e: turn_on_erase())
         self.canvas.tag_bind(help_list[0][2], "<Button-1>", lambda e: self.reroll_cells())
         for i in range(3):
             if self.blocks_to_choose[i]!=-1:
@@ -218,8 +220,21 @@ class App:
                     f"block_placed{a}_{b}", 
                     color=self.COLORS_PALETTE[0][self.board[a][b]],
                     text=str(self.board[a][b]))
+        self.canvas.tag_bind(f"block_placed{a}_{b}", "<Button-1>",
+                             lambda e: self.cell_left_click(a, b))
 
     # other methods (cosmetical, game status)
+
+    def buttons_highlight(self, on_off: bool, tag: str = "") -> None:
+        help_list = ["erase_btn", "dump_btn", "reroll_btn"]
+        color = self.OTHER_COLORS[0][1] if on_off else self.OTHER_COLORS[0][0]
+        if tag == "":
+            for i in help_list:
+                self.canvas.itemconfig(i, fill=color)
+                self.canvas.tag_raise(i+"text")
+        else: 
+            self.canvas.itemconfig(tag, fill=color)
+            self.canvas.tag_raise(tag+"text")
 
     def reset_gridcell(self) -> None:
         """
@@ -380,21 +395,30 @@ class App:
 
     # event methods
 
+    def cell_left_click(self, a: int, b: int) -> None:
+        """
+        Method loaded by clicking given block on gridcell
+        """
+        if self.flag_erase and not self.flag_animation:
+            self.board[a][b] = 0
+            self.canvas.delete(f"block_placed{a}_{b}")
+
+
     def reroll_cells(self) -> None:
         """
         Mixes all cells with themselves
         """
-        empty_cells = [[i, j] for i in range(7) for j in range(7-abs(i-3))]
-        blocks = [self.board[i][j] for i in range(7) for j in range(7-abs(i-3))
-                  if self.board[i][j]!=0]
-        for i in empty_cells:
-            self.board[i[0]][i[1]] = 0
-            self.canvas.delete(f"block_placed{i[0]}_{i[1]}")
-        for i in blocks:
-            n = empty_cells.pop(random.randint(0, len(empty_cells)-1))
-            self.board[n[0]][n[1]] = i
-            self.create_gridcell_block(n[0], n[1])
-
+        if not self.flag_animation:
+            empty_cells = [[i, j] for i in range(7) for j in range(7-abs(i-3))]
+            blocks = [self.board[i][j] for i in range(7) for j in range(7-abs(i-3))
+                    if self.board[i][j]!=0]
+            for i in empty_cells:
+                self.board[i[0]][i[1]] = 0
+                self.canvas.delete(f"block_placed{i[0]}_{i[1]}")
+            for i in blocks:
+                n = empty_cells.pop(random.randint(0, len(empty_cells)-1))
+                self.board[n[0]][n[1]] = i
+                self.create_gridcell_block(n[0], n[1])
 
     def block_icon_input(self, index: int) -> None:
         """
@@ -422,7 +446,7 @@ class App:
                     self.canvas.itemconfig(f"cell{a}_{b}", fill=self.OTHER_COLORS[0][1])
                     self.canvas.itemconfig(f"cell{c}_{d}", fill=self.OTHER_COLORS[0][1])
                     self.current_cell = [int(tag[4]), int(tag[6])]
-            elif tag=="dump_btn":
+            elif tag=="dump_btn" or tag=="dump_btntext":
                 if self.current_cell != [-2, -2]:
                     self.current_cell = [-2, -2]
                     self.reset_gridcell()
