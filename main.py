@@ -598,5 +598,7 @@ class App:
             self.master.destroy()
         th.Thread(target=wait, daemon=True).start()
 
+
+
 if __name__ == "__main__":
     app = App()
