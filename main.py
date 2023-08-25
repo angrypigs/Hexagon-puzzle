@@ -4,7 +4,8 @@ import random
 import time
 from tkinter import font
 from operator import itemgetter
-import os, sys
+import os
+import sys
 
 
 
@@ -95,6 +96,13 @@ class App:
         self.canvas.update()
         self.lose_check()
         self.master.mainloop()
+
+    def res_path(self, rel_path: str) -> str:
+        try:
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = sys.path[0]
+        return os.path.join(base_path, rel_path)
 
     # hexagon matrix handling methods
 
@@ -313,7 +321,7 @@ class App:
         for i in range(16):
             self.canvas.move(f"block_placed{c_from[0]}_{c_from[1]}",
                              (c1_to[0]-c1_from[0])//15, (c1_to[1]-c1_from[1])//16)
-            if not self.flag_close: time.sleep(0.001)
+            if not self.flag_close: time.sleep(0.01)
             self.canvas.update()
         self.canvas.delete(f"block_placed{c_from[0]}_{c_from[1]}")
 
@@ -327,7 +335,7 @@ class App:
         for i in range(steps+1):
             self.canvas.itemconfig(tag, 
                 text=start_text+str(int(start+(stop-start)*i/steps))+stop_text)
-            if not self.flag_close: time.sleep(0.001)
+            if not self.flag_close: time.sleep(0.01)
             self.canvas.update()
         self.flag_animation = False
     
@@ -337,7 +345,7 @@ class App:
         """
         Save game progress to save.txt
         """
-        file = open(os.path.join(sys.path[0], "save.txt"), "w")
+        file = open(self.res_path("save.txt"), "w")
         def random_string() -> str: return " " * random.randint(200, 300)
         # write board
         for i in range(7):
@@ -373,7 +381,7 @@ class App:
         Loads game progress from save.txt
         """
         try:
-            file = open(os.path.join(sys.path[0], "save.txt"), "r")
+            file = open(self.res_path("save.txt"), "r")
             file_lines = [x.rstrip() for x in file.readlines()]
             for i in range(7):
                 l = [int(x) for x in file_lines[i].split()]
